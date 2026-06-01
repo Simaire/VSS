@@ -29,6 +29,17 @@ fn main() {
         }
     };
 
+    let wan_ip = match gateway.get_external_ip() {
+        Ok(ip) => {
+            println!("IP externe de la box: {}", ip);
+            ip
+        }
+        Err(e) => {
+            eprintln!("Erreur WAN IP: {:?}", e);
+            return; // on stoppe si pas d'IP
+        }
+    };
+
     let local_ip = match get_local_ip() {
         Some(ip) => {
             println!("[VSS] IP locale: {}", ip);
@@ -65,10 +76,16 @@ fn main() {
 
     println!(
         "\n[VSS] OBS Url: http://localhost:8889/vss/whip\n[VSS] VRC Url: rtsp://{}:{}/vss\n",
-        local_ip, port
+        wan_ip, port
     );
 
+    
+    #[cfg(target_os = "windows")]
     let mediamtx = "libs/mediamtx/mediamtx.exe";
+
+    #[cfg(target_os = "linux")]
+    let mediamtx = "libs/mediamtx/mediamtx";
+    
     let config = "libs/mediamtx/mediamtx.yml";
 
     let _ = Command::new(mediamtx)
