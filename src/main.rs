@@ -80,7 +80,7 @@ fn main() {
     // Affichage de l'URL WAN ou fallback sur l'IP locale si pas de box
     let display_ip = wan_ip.map(|ip| ip.to_string()).unwrap_or_else(|| local_ip.to_string());
     println!(
-        "\n[VSS] OBS Url: http://localhost:8889/vss/whip\n[VSS] VRC Url: rtsp://{}:{}/vss\n",
+        "\n[VSS] OBS Url: http://localhost:8889/vss/whip\n[VSS] VRC Url: rtspt://{}:{}/vss\n",
         display_ip, port
     );
 
