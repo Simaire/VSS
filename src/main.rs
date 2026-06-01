@@ -14,7 +14,6 @@ fn get_local_ip() -> Option<Ipv4Addr> {
     }
 }
 
-
 fn main() {
     println!("[VSS] Recherche de box...");
 
@@ -29,15 +28,20 @@ fn main() {
         }
     };
 
-    let wan_ip = match gateway.get_external_ip() {
-        Ok(ip) => {
-            println!("IP externe de la box: {}", ip);
-            ip
+
+    let wan_ip = if let Some(ref gw) = gateway {
+        match gw.get_external_ip() {
+            Ok(ip) => {
+                println!("IP externe de la box: {}", ip);
+                Some(ip)
+            }
+            Err(e) => {
+                eprintln!("Erreur WAN IP: {:?}", e);
+                None
+            }
         }
-        Err(e) => {
-            eprintln!("Erreur WAN IP: {:?}", e);
-            return; // on stoppe si pas d'IP
-        }
+    } else {
+        None
     };
 
     let local_ip = match get_local_ip() {
@@ -51,12 +55,11 @@ fn main() {
         }
     };
 
-
     let port = 8554;
     let addr = SocketAddrV4::new(local_ip, port);
 
     // 🚪 Port mapping seulement si box dispo
-    if let Some(gw) = &gateway {
+    if let Some(ref gw) = gateway {
         match gw.add_port(
             PortMappingProtocol::TCP,
             port,
@@ -67,23 +70,24 @@ fn main() {
             Ok(_) => println!("[VSS] Port UPnP {} ouvert", port),
             Err(e) => {
                 println!("[VSS] UPnP refusé: {:?}", e);
-                println!("[VSS] ⚠️  ⚠️  ⚠️ Pas de redirection automatique, ouvrez le port {} manuellement!!! ⚠️  ⚠️  ⚠️", port);
+                println!("[VSS] ⚠️ Pas de redirection automatique, ouvrez le port {} manuellement!!! ⚠️", port);
             }
         }
     } else {
-        println!("[VSS] ⚠️  ⚠️  ⚠️ Pas de redirection automatique, ouvrez le port {} manuellement!!! ⚠️  ⚠️  ⚠️", port);
+        println!("[VSS] ⚠️ Pas de redirection automatique, ouvrez le port {} manuellement!!! ⚠️", port);
     }
 
+    // Affichage de l'URL WAN ou fallback sur l'IP locale si pas de box
+    let display_ip = wan_ip.map(|ip| ip.to_string()).unwrap_or_else(|| local_ip.to_string());
     println!(
         "\n[VSS] OBS Url: http://localhost:8889/vss/whip\n[VSS] VRC Url: rtsp://{}:{}/vss\n",
-        wan_ip, port
+        display_ip, port
     );
 
-    
     #[cfg(target_os = "windows")]
     let mediamtx = "libs/mediamtx/mediamtx.exe";
 
-    #[cfg(target_os = "linux")]
+    #[cfg(not(target_os = "windows"))] // Plus propre si tu tournes sur Mac ou autre, sinon "linux"
     let mediamtx = "libs/mediamtx/mediamtx";
     
     let config = "libs/mediamtx/mediamtx.yml";
