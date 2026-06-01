@@ -4,89 +4,90 @@ use std::thread;
 use std::time::Duration;
 use std::process::Command;
 
-fn get_local_ip() -> Ipv4Addr {
-    let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
-    socket.connect("8.8.8.8:80").unwrap();
+fn get_local_ip() -> Option<Ipv4Addr> {
+    let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
+    socket.connect("8.8.8.8:80").ok()?;
 
-    match socket.local_addr().unwrap().ip() {
-        std::net::IpAddr::V4(ip) => ip,
-        _ => panic!("IPv6 non supporté 😿"),
+    match socket.local_addr().ok()?.ip() {
+        std::net::IpAddr::V4(ip) => Some(ip),
+        _ => None,
     }
 }
 
-fn main() {
-    // 🔎 Recupere la box
-    println!("Recherche de box...");
-    let gateway = search_gateway(Default::default()).unwrap();
 
-    // 🌍 Récupérer WAN IP
-    let wan_ip = match gateway.get_external_ip() {
-        Ok(ip) => {
-            println!("IP externe de la box: {}", ip);
-            ip
+fn main() {
+    println!("[VSS] Recherche de box...");
+
+    let gateway = match search_gateway(Default::default()) {
+        Ok(gw) => {
+            println!("[VSS] Box UPnP détecté");
+            Some(gw)
         }
-        Err(e) => {
-            eprintln!("Erreur WAN IP: {:?}", e);
+        Err(_) => {
+            println!("[VSS] Erreur Box non compatible/indisponible");
+            None
+        }
+    };
+
+    let local_ip = match get_local_ip() {
+        Some(ip) => {
+            println!("[VSS] IP locale: {}", ip);
+            ip
+        } 
+        None => {
+            eprintln!("[VSS] Impossible de récupérer l'IP locale");
             return;
         }
     };
 
-    // 🌐 UPnP settings
-    let local_ip = get_local_ip();
-    println!("IP locale: {}", local_ip);
 
-    let port = 8888; // HLS default port
-    let duree = 86400; // 24H
-
+    let port = 8554;
     let addr = SocketAddrV4::new(local_ip, port);
 
-    // 🚪 UPnP port mapping
-    match gateway.add_port(
-        PortMappingProtocol::TCP,
-        port,
-        addr,
-        duree,
-        "VSS - VrchatStreamServer",
-    ) {
-        Ok(_) => println!("Port {} ouvert", port),
-        Err(e) => eprintln!("Erreur UPnP: {:?}", e),
+    // 🚪 Port mapping seulement si box dispo
+    if let Some(gw) = &gateway {
+        match gw.add_port(
+            PortMappingProtocol::TCP,
+            port,
+            addr,
+            86400,
+            "VSS - VrchatStreamServer",
+        ) {
+            Ok(_) => println!("[VSS] Port UPnP {} ouvert", port),
+            Err(e) => {
+                println!("[VSS] UPnP refusé: {:?}", e);
+                println!("[VSS] ⚠️  ⚠️  ⚠️ Pas de redirection automatique, ouvrez le port {} manuellement!!! ⚠️  ⚠️  ⚠️", port);
+            }
+        }
+    } else {
+        println!("[VSS] ⚠️  ⚠️  ⚠️ Pas de redirection automatique, ouvrez le port {} manuellement!!! ⚠️  ⚠️  ⚠️", port);
     }
 
-    // 📡 OBS
-    let obsurl = "rtmp://127.0.0.1:1935/live";
-    let obskey = "vss";
-
     println!(
-        "Url OBS: {}\nKey: {}", 
-        obsurl, obskey
+        "\n[VSS] OBS Url: http://localhost:8889/vss/whip\n[VSS] VRC Url: rtsp://{}:{}/vss\n",
+        local_ip, port
     );
 
-    // 🌐 VRC URL
-    println!(
-        "Url VRC: http://{}:{}/live/{}/index.m3u8",
-        wan_ip, port, obskey
-    );
-    
     let mediamtx = "libs/mediamtx/mediamtx.exe";
     let config = "libs/mediamtx/mediamtx.yml";
 
-    // 🎥 update MediaMTX
-    Command::new(mediamtx)
+    let _ = Command::new(mediamtx)
         .arg("--upgrade")
-        .status()
-        .unwrap();
-    
-    // 😴 Pause
+        .status();
+
     thread::sleep(Duration::from_secs(3));
 
-    // 🎥 Start MediaMTX
-    Command::new(mediamtx)
+    let _ = Command::new(mediamtx)
         .arg(config)
-        .status()
-        .unwrap();
+        .status();
 
-    // ⏳ Fin programme
     println!("Entrée pour fermer...");
     let mut input = String::new();
-    std::io::stdin().read_line(&mut input).unwrap();
+    let _ = std::io::stdin().read_line(&mut input);
+
+    // fermeture UPnP si dispo
+    if let Some(gw) = gateway {
+        println!("Fermeture UPnP...");
+        let _ = gw.remove_port(PortMappingProtocol::TCP, port);
+    }
 }
