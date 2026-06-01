@@ -317,7 +317,7 @@ rtmpServerCert: server.crt
 # Global settings -> HLS server
 
 # Allow clients to read streams with the HLS protocol.
-hls: true
+hls: false
 # Address of the HLS listener.
 hlsAddress: :8888
 # Enable HTTPS on the HLS server.
@@ -380,7 +380,7 @@ hlsCDNSecret: ''
 # Global settings -> WebRTC server
 
 # Allow clients to publish and read streams with the WebRTC protocol.
-webrtc: true
+webrtc: false
 # Address of the WebRTC HTTP listener.
 webrtcAddress: :8889
 # Enable HTTPS on the WebRTC server.
