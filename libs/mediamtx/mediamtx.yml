@@ -796,7 +796,8 @@ pathDefaults:
 # It's possible to use regular expressions by using a tilde as prefix,
 # for example "~^(test1|test2)$" will match both "test1" and "test2",
 # for example "~^prefix" will match all paths that start with "prefix".
-paths:
+paths:  
+
   # example:
   # my_camera:
   #   source: rtsp://my_camera
