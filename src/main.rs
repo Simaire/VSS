@@ -1,8 +1,17 @@
 use igd::{search_gateway, PortMappingProtocol};
+
 use std::net::{SocketAddrV4, Ipv4Addr, UdpSocket};
+
+use std::process::{Child, Command};
+
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
+
 use std::thread;
 use std::time::Duration;
-use std::process::Command;
+
 use std::fs::{OpenOptions, read_to_string};
 use std::io::Write;
 
@@ -59,6 +68,22 @@ fn remove_hosts_entry(domain: &str) {
                 let _ = writeln!(file, "{}", line);
             }
             println!("[VSS] Nettoyage du DNS local effectué.");
+        }
+    }
+}
+
+fn start_mediamtx(binary: &str, config: &str) -> Option<Child> {
+    match Command::new(binary)
+        .arg(config)
+        .spawn()
+    {
+        Ok(child) => {
+            println!("[VSS] MediaMTX démarré");
+            Some(child)
+        }
+        Err(e) => {
+            eprintln!("[VSS] Impossible de démarrer MediaMTX: {e}");
+            None
         }
     }
 }
@@ -135,7 +160,7 @@ fn main() {
     add_hosts_entry(&temp_domain, "127.0.0.1");
 
     println!(
-        "\n[VSS] OBS Url: http://localhost:8889/vss/whip\n[VSS] VRC Url: rtsp://{}:{}/vss\n",
+        "\n[VSS] OBS Url: rtmp://localhost/vss\n[VSS] VRC Url: rtspt://{}:{}/vss\n",
         temp_domain, port
     );
 
@@ -153,13 +178,65 @@ fn main() {
 
     thread::sleep(Duration::from_secs(3));
 
-    let _ = Command::new(mediamtx)
-        .arg(config)
-        .status();
+    let running = Arc::new(AtomicBool::new(true));
 
-    println!("Entrée pour fermer...");
-    let mut input = String::new();
-    let _ = std::io::stdin().read_line(&mut input);
+    {
+        let running = running.clone();
+
+        ctrlc::set_handler(move || {
+            println!("\n[VSS] Arrêt demandé...");
+            running.store(false, Ordering::SeqCst);
+        })
+        .expect("Erreur Ctrl+C");
+    }
+
+
+    let mut child = start_mediamtx(mediamtx, config);
+
+    while running.load(Ordering::SeqCst) {
+        match child.as_mut() {
+            Some(process) => {
+                match process.try_wait() {
+                    Ok(Some(status)) => {
+                        println!(
+                            "[VSS] MediaMTX s'est arrêté ({status}), redémarrage dans 5s..."
+                        );
+
+                        thread::sleep(Duration::from_secs(5));
+
+                        if running.load(Ordering::SeqCst) {
+                            child = start_mediamtx(mediamtx, config);
+                        }
+                    }
+
+                    Ok(None) => {
+                        thread::sleep(Duration::from_secs(1));
+                    }
+
+                    Err(e) => {
+                        eprintln!("[VSS] Erreur supervision: {e}");
+                        thread::sleep(Duration::from_secs(5));
+                    }
+                }
+            }
+
+            None => {
+                thread::sleep(Duration::from_secs(5));
+
+                if running.load(Ordering::SeqCst) {
+                    child = start_mediamtx(mediamtx, config);
+                }
+            }
+        }
+    }
+
+    println!("[VSS] Arrêt de MediaMTX...");
+
+    if let Some(mut process) = child {
+        if let Err(e) = process.kill() {
+        eprintln!("[VSS] Kill MediaMTX: {e}");
+        }
+    }
 
     // 🧹 Nettoyage DNS local avant de quitter
     remove_hosts_entry(&temp_domain);
@@ -169,4 +246,8 @@ fn main() {
         println!("Fermeture UPnP...");
         let _ = gw.remove_port(PortMappingProtocol::TCP, port);
     }
+
+    println!("Entrée pour fermer...");
+    let mut input = String::new();
+    let _ = std::io::stdin().read_line(&mut input);
 }
