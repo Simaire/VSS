@@ -156,7 +156,7 @@ fn main() {
         None => format!("{}.sslip.io", local_ip), // Fallback
     };
 
-    // 🔥 Injection magique : On dit à CE PC que ce domaine = 127.0.0.1
+    // Setup Host
     add_hosts_entry(&temp_domain, "127.0.0.1");
 
     println!(

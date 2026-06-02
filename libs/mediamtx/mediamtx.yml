@@ -256,7 +256,7 @@ playbackTrustedProxies: []
 # Allow clients to publish and read streams with the RTSP protocol.
 rtsp: true
 # Enabled RTSP transport protocols. The handshake is always performed with TCP.
-rtspTransports: [udp, multicast, tcp]
+rtspTransports: [tcp]
 # Use secure protocol variants (RTSPS, SRTP, SRTCP).
 # Available values are "no", "strict", "optional".
 rtspEncryption: "no"
