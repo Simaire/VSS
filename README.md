@@ -2,7 +2,7 @@
 <img src="https://raw.githubusercontent.com/PKief/vscode-material-icon-theme/ec559a9f6bfd399b82bb44393651661b08aaf7ba/icons/folder-markdown-open.svg" align="right" width="30%" style="margin: -20px 0 0 20px;">
 <h1>VSS - Vrchat Streaming Server</h1>
 <p align="left">
-	<em><code>❯ VSS est un utilitaire permetant de mettre en place un server MediaMTX (https://mediamtx.org/) et de l'exposer sur internet, permetant la conversion d'un flux RTMP (OBS) vers HLS (VRChat)
+	<em><code>❯ VSS est un utilitaire permetant de mettre en place un server MediaMTX (https://mediamtx.org/) et de l'exposer sur internet, permetant la conversion d'un flux RTMP (OBS) vers RTSP (VRChat)
 </code></em>
 </p>
 <p align="left">
