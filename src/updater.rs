@@ -26,7 +26,7 @@ fn download(url: &str, path: &str) -> Result<(), Box<dyn std::error::Error>> {
     
     let pb = ProgressBar::new(size);
     pb.set_style(ProgressStyle::default_bar()
-        .template("{spinner:.green} [Update] [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta})")?
+        .template("[Update] {spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta})")?
         .progress_chars("#>-"));
 
     let mut out = fs::File::create(path)?;
