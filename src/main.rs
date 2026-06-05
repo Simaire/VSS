@@ -92,15 +92,15 @@ fn main() {
 
     println!("VSS démarré !");
     
-    println!("[VSS] Recherche de box...");
+    println!("[Upnp] Recherche de box...");
 
     let gateway = match search_gateway(Default::default()) {
         Ok(gw) => {
-            println!("[VSS] Box UPnP détectée");
+            println!("[Upnp] Box détectée");
             Some(gw)
         }
         Err(_) => {
-            println!("[VSS] Erreur Box non compatible/indisponible");
+            println!("[Upnp] Erreur Box non compatible/indisponible");
             None
         }
     };
@@ -108,11 +108,11 @@ fn main() {
     let wan_ip = if let Some(ref gw) = gateway {
         match gw.get_external_ip() {
             Ok(ip) => {
-                println!("[VSS] IP externe de la box: {}", ip);
+                println!("[Upnp] IP externe de la box: {}", ip);
                 Some(ip)
             }
             Err(e) => {
-                eprintln!("Erreur WAN IP: {:?}", e);
+                eprintln!("[Upnp] Erreur WAN IP: {:?}", e);
                 None
             }
         }
@@ -143,10 +143,10 @@ fn main() {
             86400,
             "VSS - VrchatStreamServer",
         ) {
-            Ok(_) => println!("[VSS] Port UPnP {} ouvert (TCP)", port),
+            Ok(_) => println!("[Upnp] Port UPnP {} ouvert (TCP)", port),
             Err(e) => {
-                println!("[VSS] UPnP refusé: {:?}", e);
-                println!("[VSS] ⚠️ Pas de redirection automatique, ouvrez le port {} manuellement !!! ⚠️", port);
+                println!("[Upnp] UPnP refusé: {:?}", e);
+                println!("[Upnp] ⚠️ Pas de redirection automatique, ouvrez le port {} manuellement !!! ⚠️", port);
             }
         }
     } else {
@@ -175,9 +175,9 @@ fn main() {
     let config = "libs/mediamtx/mediamtx.yml";
 
     // Mise à jour de MediaMTX
-    let _ = Command::new(mediamtx)
-        .arg("--upgrade")
-        .status();
+    //let _ = Command::new(mediamtx)
+    //    .arg("--upgrade")
+    //    .status();
 
     thread::sleep(Duration::from_secs(2));
 

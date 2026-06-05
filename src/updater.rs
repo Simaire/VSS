@@ -1,6 +1,7 @@
 use std::{fs, path::Path};
 use semver::Version;
 use serde::Deserialize;
+use indicatif::{ProgressBar, ProgressStyle};
 
 #[derive(Deserialize)]
 struct Release { tag_name: String, assets: Vec<Asset> }
@@ -21,7 +22,16 @@ fn zip_name() -> &'static str {
 
 fn download(url: &str, path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let mut resp = reqwest::blocking::get(url)?;
-    std::io::copy(&mut resp, &mut fs::File::create(path)?)?;
+    let size = resp.content_length().unwrap_or(0);
+    
+    let pb = ProgressBar::new(size);
+    pb.set_style(ProgressStyle::default_bar()
+        .template("{spinner:.green} [Update] [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta})")?
+        .progress_chars("#>-"));
+
+    let mut out = fs::File::create(path)?;
+    std::io::copy(&mut pb.wrap_read(&mut resp), &mut out)?;
+    pb.finish_with_message("[Update] Téléchargement terminé !");
     Ok(())
 }
 
@@ -29,7 +39,13 @@ fn extract_to_staging(zip_path: &str) -> Result<(), Box<dyn std::error::Error>> 
     let mut zip = zip::ZipArchive::new(fs::File::open(zip_path)?)?;
     let _ = fs::remove_dir_all(NEXT_DIR);
 
+    let pb = ProgressBar::new(zip.len() as u64);
+    pb.set_style(ProgressStyle::default_bar()
+        .template("[Update] {spinner:.green} Extraction : [{bar:40.green/animated}] {pos}/{len} fichiers")?
+        .progress_chars("#>-"));
+
     for i in 0..zip.len() {
+        pb.set_position(i as u64);
         let mut file = zip.by_index(i)?;
         let path = match file.enclosed_name() { Some(p) => Path::new(NEXT_DIR).join(p), None => continue };
 
@@ -43,11 +59,13 @@ fn extract_to_staging(zip_path: &str) -> Result<(), Box<dyn std::error::Error>> 
             fs::set_permissions(&path, fs::Permissions::from_mode(0o755))?;
         }
     }
+    pb.finish_with_message("[Update] Extraction terminée !");
     Ok(())
 }
 
 #[cfg(target_os = "windows")]
 fn finalize_swap() -> Result<(), Box<dyn std::error::Error>> {
+    println!("[Update] Application de la mise à jour...");
     let ps_script = format!(
 r#"$proc = Get-Process -Id {pid} -ErrorAction SilentlyContinue
 if ($proc) {{ $proc | Wait-Process }}
@@ -65,7 +83,7 @@ Start-Process "{exe}""#,
 
 #[cfg(not(target_os = "windows"))]
 fn finalize_swap() -> Result<(), Box<dyn std::error::Error>> {
-    // Le ZIP ayant un dossier racine "VSS/", le contenu extrait est dans .vss_next/VSS/
+    println!("[Update] Application de la mise à jour...");
     let staging_vss = Path::new(NEXT_DIR).join("VSS");
     
     for entry in fs::read_dir(&staging_vss)? {
@@ -83,6 +101,7 @@ fn finalize_swap() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     let _ = fs::remove_dir_all(NEXT_DIR);
+    println!("[Update] Mise à jour installée avec succès !");
     Ok(())
 }
 
@@ -91,18 +110,26 @@ pub fn check_update() {
     #[cfg(target_os = "windows")]
     let _ = fs::remove_file("update.ps1");
 
+    println!("[Update] Vérification des mises à jour...");
     if let Ok(release) = reqwest::blocking::Client::new()
         .get("https://api.github.com/repos/Simaire/VSS/releases/latest")
         .header("User-Agent", "VSS").send().and_then(|r| r.json::<Release>()) 
     {
         if Version::parse(&release.tag_name.trim_start_matches('v')).unwrap_or(Version::new(0,0,0)) > Version::parse(CURRENT_VERSION).unwrap() {
+            println!("[Update] Nouvelle version détectée : {}", release.tag_name);
             let zip = zip_name();
             if let Some(asset) = release.assets.iter().find(|a| a.name == zip) {
                 if download(&asset.browser_download_url, zip).is_ok() && extract_to_staging(zip).is_ok() {
                     let _ = fs::remove_file(zip);
                     let _ = finalize_swap();
+                } else {
+                    eprintln!("[Update] Échec lors du téléchargement ou de l'extraction.");
                 }
             }
+        } else {
+            println!("[Update] VSS est déjà à jour ({})", CURRENT_VERSION);
         }
+    } else {
+        eprintln!("[Update] Impossible de contacter le serveur de mise à jour.");
     }
 }
