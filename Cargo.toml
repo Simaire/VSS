@@ -1,8 +1,14 @@
 [package]
 name = "vss"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 
 [dependencies]
 igd = "0.12"
 ctrlc = "3.4"
+self_update = "0.44.0"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.13.4", features = ["blocking", "json"] }
+serde = { version = "1", features = ["derive"] }
+zip = "8.6.0"
+semver = "1"

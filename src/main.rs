@@ -10,6 +10,8 @@ use std::time::Duration;
 use std::fs::{OpenOptions, read_to_string};
 use std::io::Write;
 
+mod updater;
+
 fn get_local_ip() -> Option<Ipv4Addr> {
     let socket = UdpSocket::bind("0.0.0.0:0").ok()?;
     socket.connect("8.8.8.8:80").ok()?;
@@ -84,6 +86,12 @@ fn start_mediamtx(binary: &str, config: &str) -> Option<Child> {
 }
 
 fn main() {
+
+    //Mise a jour
+    updater::check_update();
+
+    println!("VSS démarré !");
+    
     println!("[VSS] Recherche de box...");
 
     let gateway = match search_gateway(Default::default()) {
